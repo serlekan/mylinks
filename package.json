@@ -1,0 +1,13 @@
+{
+  "name": "mylinks",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Open-source link-in-bio website with GitHub-powered editor",
+  "type": "module",
+  "scripts": {
+    "test": "node --test scripts/validate.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

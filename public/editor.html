@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#080808">
+<title>Manage links — MyLinks</title>
+<link rel="stylesheet" href="./styles.css"><script defer src="./editor.js"></script>
+</head>
+<body class="editor-page"><main class="editor-shell">
+<header class="editor-head"><div><div class="eyebrow">MYLINKS / EDITOR</div><h1>Manage links.</h1><p>Edit links, save a draft, export JSON or publish to GitHub. Only a token with write permission can publish.</p></div><a href="./index.html">← View site</a></header>
+<p class="feedback" id="feedback" role="status" aria-live="polite" hidden></p>
+<section class="panel" aria-labelledby="profile-title"><h2 id="profile-title">Profile</h2>
+<div class="form-grid">
+<label class="field">Name<input id="profile-name" maxlength="100" required></label>
+<label class="field">Eyebrow<input id="profile-eyebrow" maxlength="140"></label>
+<label class="field">Status<input id="profile-status" maxlength="100"></label>
+<label class="field">GitHub repository (owner/name)<input id="repository" placeholder="yourname/mylinks" spellcheck="false"></label>
+<label class="field wide">Introduction<textarea id="profile-intro" maxlength="1000"></textarea></label>
+<label class="field wide">Footer tagline<input id="profile-footer" maxlength="160"></label>
+</div></section>
+<section class="panel" aria-labelledby="links-title"><div class="bar between"><h2 id="links-title">Links</h2><button class="btn primary" id="add-link" type="button">+ Add link</button></div>
+<div class="editor-links" id="editor-links"></div></section>
+<section class="panel" aria-labelledby="save-title"><h2 id="save-title">Save & publish</h2>
+<p>Drafts are stored only in this browser. Downloads let you commit changes manually. Publishing creates a commit in the configured GitHub repository; the deployment workflow then updates your site when configured.</p>
+<div class="bar"><button class="btn" id="save-draft" type="button">Save draft</button><button class="btn" id="restore-draft" type="button">Restore draft</button><button class="btn" id="download-json" type="button">Download data.json</button><button class="btn" id="import-json" type="button">Import JSON</button><input type="file" id="import-file" accept=".json,application/json" hidden></div>
+<hr style="border:0;border-top:1px solid #383838;margin:24px 0">
+<div class="publish-row"><label class="field">Fine-grained GitHub token, Contents: Read and write<input id="github-token" type="password" autocomplete="off" spellcheck="false" placeholder="github_pat_..."></label><button class="btn primary" id="publish" type="button">Publish to GitHub</button></div>
+<p class="helper">Token stays in memory only; it is sent directly to api.github.com. It is never saved, exported, or committed. For shared/public computers, use JSON export instead. Open this page from a trusted deployment.</p>
+</section><p class="editor-foot">Public viewers can open the editor, but cannot publish without authorized repository credentials. Read the README for setup and Cloudflare deployment.</p>
+</main></body></html>
