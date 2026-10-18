@@ -107,3 +107,5 @@ Report vulnerabilities privately to the repository owner rather than posting sec
 ## References
 
 [Cloudflare Direct Upload CI](https://developers.cloudflare.com/pages/how-to/use-direct-upload-with-continuous-integration/), [Access JWT verification](https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/authorization-cookie/validating-json/), [GitHub Contents API](https://docs.github.com/en/rest/repos/contents#create-or-update-file-contents).
+
+`node scripts/live-smoke.mjs` tests the deployed public/editor paths in disposable Chromium, Firefox and WebKit contexts, saves screenshots under `output/playwright/live`, and writes JSON results. Override `BASE_URL` and `OUTPUT_DIR` for a specific release. It changes only local browser drafts and never commits production content.

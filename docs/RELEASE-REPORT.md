@@ -24,3 +24,15 @@ Automated suites cover signed owner/nonowner/forged/expired/wrong-audience JWTs,
 
 ## Acceptance boundary
 No 95–98% readiness percentage is claimed. The positive authenticated production publish/deployment journey and unattended CI are external configuration blockers, even when the public site and export editor are deployed successfully. Production release SHA, URL checks, screenshots and exact final command results are recorded in the release deliverable accompanying this task. A successful upload is only a candidate until live verification passes.
+
+## Verified initial production release — 2026-10-18
+
+- Commit 03aec6e89c2c8772eedbecee8613c374e567512b deployed with the existing authorized Wrangler login to https://5022d41e.serlekan-links.pages.dev and the unchanged https://serlekan-links.pages.dev.
+- Both hostnames served that exact release marker, matching data and all required assets. Anonymous POST /api/publish returned uncached JSON HTTP 503 (configuration unavailable), with no write authority.
+- Live Chromium, Firefox and WebKit smoke journeys passed: four correct links, 320px public/editor layouts, real preview, browser draft save/reload/restore, discard and disabled unauthorized publishing; no page runtime errors.
+- Local verification: 41 unit/schema/security tests and 33 browser tests passed. Automated WCAG AA scans found no violations in the tested page states. npm audit reported zero vulnerabilities; Pages Functions bundle compiled successfully.
+- GitHub Actions run 39109627101 validated successfully, including Linux browser tests, then deployment failed explicitly at the configuration guard: Missing CLOUDFLARE_API_TOKEN. The live deployment came from local Wrangler, not that failed job.
+- Production redirects /editor.html to /editor using HTTP 308; the verification script accepts that legitimate canonical redirect.
+- Destination checks: Selected Work, Virel and X returned HTTP 200. LinkedIn rejected the automated fetch with HTTP 403; its availability is not conclusively verified by that response, so no broken-link claim is made.
+
+Following documentation/verification-script commits do not alter application behavior. Consult production release.json and the accompanying final report for the final deployed source SHA.

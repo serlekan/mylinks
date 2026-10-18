@@ -47,7 +47,7 @@ for (const origin of [
       const editor = await fetch(new URL("/editor.html", origin), {
         redirect: "manual",
       });
-      assert.ok([200, 302, 401, 403, 503].includes(editor.status));
+      assert.ok([200, 302, 307, 308, 401, 403, 503].includes(editor.status));
       const denied = await fetch(new URL("/api/publish", origin), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
