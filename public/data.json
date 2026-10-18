@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "profile": {
+    "name": "Serlekan",
+    "eyebrow": "Founder · Builder · Operator",
+    "status": "Building",
+    "intro": "I build products at the intersection of software, finance, Web3 and operations. This is the shortest route to my work, what I’m building, and where I write.",
+    "footer": "One identity. Multiple builds."
+  },
+  "repository": "serlekan/mylinks",
+  "links": [
+    {
+      "id": "work",
+      "title": "Selected Work",
+      "description": "Portfolio, products, experiments and client work. Start here to see what I’ve built.",
+      "url": "https://serlekan-works.pages.dev/en/",
+      "enabled": true
+    },
+    {
+      "id": "virel",
+      "title": "Virel",
+      "description": "A Solana-native finance workspace bringing structure to stablecoin payment operations.",
+      "url": "https://virel.finance/",
+      "enabled": true
+    },
+    {
+      "id": "x",
+      "title": "X / @serlekan",
+      "description": "Build logs, Web3, AI, product thinking and what I’m learning in public.",
+      "url": "https://x.com/serlekan",
+      "enabled": true
+    },
+    {
+      "id": "linkedin",
+      "title": "LinkedIn",
+      "description": "Professional background, B2B sales, product operations and business-focused work.",
+      "url": "https://linkedin.com/in/serlekan/",
+      "enabled": true
+    }
+  ]
+}
