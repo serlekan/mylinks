@@ -1,30 +1,184 @@
 <!doctype html>
 <html lang="en">
-<head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#080808">
-<title>Manage links — MyLinks</title>
-<link rel="stylesheet" href="./styles.css"><script defer src="./editor.js"></script>
-</head>
-<body class="editor-page"><main class="editor-shell">
-<header class="editor-head"><div><div class="eyebrow">MYLINKS / EDITOR</div><h1>Manage links.</h1><p>Edit links, save a draft, export JSON or publish to GitHub. Only a token with write permission can publish.</p></div><a href="./index.html">← View site</a></header>
-<p class="feedback" id="feedback" role="status" aria-live="polite" hidden></p>
-<section class="panel" aria-labelledby="profile-title"><h2 id="profile-title">Profile</h2>
-<div class="form-grid">
-<label class="field">Name<input id="profile-name" maxlength="100" required></label>
-<label class="field">Eyebrow<input id="profile-eyebrow" maxlength="140"></label>
-<label class="field">Status<input id="profile-status" maxlength="100"></label>
-<label class="field">GitHub repository (owner/name)<input id="repository" placeholder="yourname/mylinks" spellcheck="false"></label>
-<label class="field wide">Introduction<textarea id="profile-intro" maxlength="1000"></textarea></label>
-<label class="field wide">Footer tagline<input id="profile-footer" maxlength="160"></label>
-</div></section>
-<section class="panel" aria-labelledby="links-title"><div class="bar between"><h2 id="links-title">Links</h2><button class="btn primary" id="add-link" type="button">+ Add link</button></div>
-<div class="editor-links" id="editor-links"></div></section>
-<section class="panel" aria-labelledby="save-title"><h2 id="save-title">Save & publish</h2>
-<p>Drafts are stored only in this browser. Downloads let you commit changes manually. Publishing creates a commit in the configured GitHub repository; the deployment workflow then updates your site when configured.</p>
-<div class="bar"><button class="btn" id="save-draft" type="button">Save draft</button><button class="btn" id="restore-draft" type="button">Restore draft</button><button class="btn" id="download-json" type="button">Download data.json</button><button class="btn" id="import-json" type="button">Import JSON</button><input type="file" id="import-file" accept=".json,application/json" hidden></div>
-<hr style="border:0;border-top:1px solid #383838;margin:24px 0">
-<div class="publish-row"><label class="field">Fine-grained GitHub token, Contents: Read and write<input id="github-token" type="password" autocomplete="off" spellcheck="false" placeholder="github_pat_..."></label><button class="btn primary" id="publish" type="button">Publish to GitHub</button></div>
-<p class="helper">Token stays in memory only; it is sent directly to api.github.com. It is never saved, exported, or committed. For shared/public computers, use JSON export instead. Open this page from a trusted deployment.</p>
-</section><p class="editor-foot">Public viewers can open the editor, but cannot publish without authorized repository credentials. Read the README for setup and Cloudflare deployment.</p>
-</main></body></html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex,nofollow" />
+    <meta name="theme-color" content="#080808" />
+    <title>Manage links — MyLinks</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <script type="module" src="./editor.js"></script>
+  </head>
+  <body class="editor-page">
+    <main class="editor-shell">
+      <header class="editor-head">
+        <div>
+          <div class="eyebrow">MYLINKS / EDITOR</div>
+          <h1>Your corner<br />of the internet.</h1>
+          <p>Make it yours. Preview every change, then publish when ready.</p>
+        </div>
+        <a href="./">↗ View published site</a>
+      </header>
+      <nav class="editor-nav" aria-label="Editor sections">
+        <a href="#profile-title">01 Profile</a
+        ><a href="#links-title">02 Links</a
+        ><a href="#appearance-title">03 Appearance</a
+        ><a href="#preview-title">04 Preview</a
+        ><a href="#save-title">05 Save & publish</a>
+      </nav>
+      <p id="dirty" class="dirty" role="status">Loading published content…</p>
+      <p
+        class="feedback"
+        id="feedback"
+        role="status"
+        aria-live="polite"
+        hidden
+      ></p>
+      <fieldset id="editor-fields" disabled>
+        <section class="panel" aria-labelledby="profile-title">
+          <h2 id="profile-title">01 / Profile</h2>
+          <div class="form-grid">
+            <label class="field"
+              >Name<input id="profile-name" maxlength="100" required
+            /></label>
+            <label class="field"
+              >Headline<input id="profile-eyebrow" maxlength="140"
+            /></label>
+            <label class="field"
+              >Status<input id="profile-status" maxlength="100"
+            /></label>
+            <label class="field"
+              >GitHub repository<input
+                id="repository"
+                readonly
+                aria-describedby="repo-help"
+            /></label>
+            <p id="repo-help" class="helper wide">
+              Publishing destination is fixed on the server. Forks can change
+              repository in data.json.
+            </p>
+            <label class="field wide"
+              >Biography<textarea
+                id="profile-intro"
+                maxlength="1000"
+              ></textarea>
+            </label>
+            <label class="field wide"
+              >Footer content<input id="profile-footer" maxlength="160"
+            /></label>
+          </div>
+        </section>
+        <section class="panel" aria-labelledby="links-title">
+          <div class="bar between">
+            <h2 id="links-title">02 / Links</h2>
+            <button class="btn primary" id="add-link" type="button">
+              + Add link
+            </button>
+          </div>
+          <p class="helper">
+            Drag a card by its handle, or use its Move up / Move down buttons.
+          </p>
+          <div class="editor-links" id="editor-links"></div>
+        </section>
+        <section class="panel" aria-labelledby="appearance-title">
+          <h2 id="appearance-title">03 / Appearance</h2>
+          <div class="form-grid">
+            <label class="field"
+              >Accent<select id="accent">
+                <option value="lime">Lime</option>
+                <option value="mint">Mint</option>
+                <option value="sky">Sky</option>
+              </select></label
+            >
+            <label class="field"
+              >Card shape<select id="cards">
+                <option value="rounded">Rounded</option>
+                <option value="square">Square</option>
+              </select></label
+            >
+          </div>
+        </section>
+        <section class="panel" aria-labelledby="preview-title">
+          <div class="bar between">
+            <h2 id="preview-title">04 / Preview</h2>
+            <div class="bar">
+              <button
+                class="btn"
+                id="desktop-preview"
+                aria-pressed="true"
+                type="button"
+              >
+                Desktop</button
+              ><button
+                class="btn"
+                id="mobile-preview"
+                aria-pressed="false"
+                type="button"
+              >
+                Mobile
+              </button>
+            </div>
+          </div>
+          <p class="helper">
+            The actual public page, showing your current draft. Invalid
+            destinations are disabled.
+          </p>
+          <div id="preview-wrap" class="preview-wrap">
+            <iframe
+              id="preview"
+              title="Live page preview"
+              src="./index.html?preview"
+            ></iframe>
+          </div>
+        </section>
+        <section class="panel" aria-labelledby="save-title">
+          <h2 id="save-title">05 / Save & publish</h2>
+          <p>
+            Drafts stay in this browser. Export a validated data.json to commit
+            manually, or publish through the owner service when configured.
+          </p>
+          <div class="bar">
+            <button class="btn" id="save-draft" type="button">Save draft</button
+            ><button class="btn" id="restore-draft" type="button">
+              Restore draft</button
+            ><button class="btn" id="download-json" type="button">
+              Download data.json</button
+            ><button class="btn" id="import-json" type="button">
+              Import JSON</button
+            ><button class="btn danger" id="discard" type="button">
+              Restore published version</button
+            ><input
+              type="file"
+              id="import-file"
+              accept=".json,application/json"
+              hidden
+            />
+          </div>
+          <hr />
+          <p id="service-status" class="helper">
+            Checking owner publishing service…
+          </p>
+          <div class="bar">
+            <button class="btn primary" id="publish" type="button" disabled>
+              Publish changes</button
+            ><button class="btn" id="check-status" type="button" disabled>
+              Check deployment</button
+            ><a
+              id="commit-link"
+              hidden
+              target="_blank"
+              rel="noopener noreferrer"
+              >View commit</a
+            >
+          </div>
+          <p id="deployment-status" role="status" class="feedback" hidden></p>
+        </section>
+      </fieldset>
+      <p class="editor-foot">
+        Public visitors can preview and export their own local edits. Only an
+        authorized owner can write to the repository. No credentials are
+        accepted by this editor.
+      </p>
+    </main>
+  </body>
+</html>

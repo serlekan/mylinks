@@ -2,3 +2,9 @@ node_modules/
 .DS_Store
 .wrangler/
 .env*
+
+dist/
+playwright-report/
+test-results/
+output/
+.dev.vars*

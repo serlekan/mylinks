@@ -5,9 +5,20 @@
   "description": "Open-source link-in-bio website with GitHub-powered editor",
   "type": "module",
   "scripts": {
-    "test": "node --test scripts/validate.mjs"
+    "test": "node --test scripts/validate.mjs tests/*.test.mjs",
+    "build": "node scripts/build.mjs",
+    "test:e2e": "playwright test",
+    "dev": "node scripts/serve.mjs"
   },
   "engines": {
     "node": ">=20"
+  },
+  "dependencies": {
+    "jose": "6.2.12"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.14.0",
+    "@playwright/test": "1.64.1",
+    "wrangler": "4.151.1"
   }
 }

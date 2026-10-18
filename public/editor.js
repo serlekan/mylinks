@@ -1,92 +1,462 @@
-"use strict";
-(function(){
-  const $=id=>document.getElementById(id);
-  let model=null,baseline=null,working=false;
-  const show=(msg,bad=false)=>{const n=$("feedback");n.hidden=false;n.className="feedback"+(bad?" error":"");n.textContent=msg;};
-  const fields=[["name","profile-name"],["eyebrow","profile-eyebrow"],["status","profile-status"],["intro","profile-intro"],["footer","profile-footer"]];
-  const repoOk=s=>/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(s||"");
-  const validUrl=s=>{try{const u=new URL(s);return ["http:","https:"].includes(u.protocol)&&!u.username&&!u.password}catch{return false}};
-  const clone=o=>JSON.parse(JSON.stringify(o));
-  const newId=()=>typeof crypto!=="undefined"&&crypto.randomUUID?crypto.randomUUID():"link-"+Date.now()+"-"+Math.floor(Math.random()*100000);
-  function validate(d){
-    if(!d||!d.profile||!Array.isArray(d.links))throw Error("Expected a profile object and links array.");
-    if(!String(d.profile.name||"").trim())throw Error("Profile name is required.");
-    if(!repoOk(d.repository))throw Error("Repository must be in owner/name format.");
-    const ids=new Set();
-    d.links.forEach((l,i)=>{if(!l.id||ids.has(l.id))throw Error("Link "+(i+1)+" must have a unique ID.");ids.add(l.id);
-      if(!String(l.title||"").trim())throw Error("Link "+(i+1)+" needs a title.");
-      if(!validUrl(l.url))throw Error("Link "+(i+1)+" must have an http:// or https:// URL without embedded credentials.");
-      if(typeof l.enabled!=="boolean")throw Error("Link "+(i+1)+" needs an enabled flag.");
+import { validate, validateDraft, limits, MAX_BYTES } from "./schema.js";
+const $ = (id) => document.getElementById(id);
+const clone = structuredClone;
+const fields = ["name", "eyebrow", "status", "intro", "footer"];
+let model,
+  published,
+  baseSha = null,
+  service = false,
+  working = false,
+  saved = "",
+  commit = null;
+const key = () => `mylinks-draft-${published.repository}`;
+const show = (message, bad = false) => {
+  $("feedback").hidden = false;
+  $("feedback").className = `feedback${bad ? " error" : ""}`;
+  $("feedback").textContent = message;
+};
+const status = (message) => {
+  $("deployment-status").hidden = false;
+  $("deployment-status").textContent = message;
+};
+function capture() {
+  fields.forEach((k) => (model.profile[k] = $(`profile-${k}`).value));
+  model.appearance = { accent: $("accent").value, cards: $("cards").value };
+  document.querySelectorAll(".editor-card").forEach((card) => {
+    const link = model.links.find((l) => l.id === card.dataset.id);
+    for (const f of ["title", "description", "url", "enabled"]) {
+      const input = card.querySelector(`[data-field="${f}"]`);
+      link[f] = f === "enabled" ? input.checked : input.value;
+    }
+  });
+  return model;
+}
+function update() {
+  const changed = JSON.stringify(model) !== saved;
+  $("dirty").textContent = changed
+    ? "Unsaved changes · preview only"
+    : "No unsaved changes";
+  $("preview").contentWindow?.postMessage(
+    { type: "mylinks-preview", data: model },
+    location.origin,
+  );
+}
+function move(from, to) {
+  capture();
+  if (to < 0 || to >= model.links.length || from === to) return;
+  const [item] = model.links.splice(from, 1);
+  model.links.splice(to, 0, item);
+  renderLinks();
+  update();
+  document
+    .querySelectorAll(".editor-card")
+    [to]?.querySelector("button")
+    ?.focus();
+  show(`Link moved to position ${to + 1}.`);
+}
+function button(label, action, disabled = false) {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = "btn";
+  b.textContent = label;
+  b.disabled = disabled;
+  b.onclick = action;
+  return b;
+}
+function renderLinks() {
+  $("editor-links").replaceChildren();
+  model.links.forEach((link, index) => {
+    const card = document.createElement("article");
+    card.className = "editor-card";
+    card.dataset.id = link.id;
+    const head = document.createElement("div");
+    head.className = "editor-card-head";
+    const handle = document.createElement("span");
+    handle.textContent = `⠿ Link ${String(index + 1).padStart(2, "0")}`;
+    handle.className = "drag-handle";
+    handle.draggable = true;
+    handle.title = "Drag to reorder";
+    handle.addEventListener("dragstart", (e) => {
+      capture();
+      e.dataTransfer.setData("text/plain", link.id);
+      e.dataTransfer.effectAllowed = "move";
     });
-    return d;
-  }
-  function readForm(){
-    const out=clone(model);
-    fields.forEach(([key,id])=>out.profile[key]=$(id).value.trim());
-    out.repository=$("repository").value.trim();out.links=[];
-    document.querySelectorAll(".editor-card").forEach(card=>{
-      const get=key=>card.querySelector('[data-field="'+key+'"]');
-      out.links.push({id:card.dataset.id,title:get("title").value.trim(),description:get("description").value.trim(),url:get("url").value.trim(),enabled:get("enabled").checked});
+    card.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
     });
-    return validate(out);
-  }
-  function move(index,dir){try{model=readForm();const other=index+dir;if(other<0||other>=model.links.length)return;
-    [model.links[index],model.links[other]]=[model.links[other],model.links[index]];render();}catch(e){show(e.message,true)}}
-  function input(tag,field,value){const n=document.createElement(tag);n.dataset.field=field;
-    if(tag==="textarea"){n.value=value||"";n.rows=2;}else{n.type=field==="enabled"?"checkbox":field==="url"?"url":"text";if(field==="enabled")n.checked=value;else n.value=value||"";}
-    return n;
-  }
-  function appendField(card,text,field,value){const lab=document.createElement("label");lab.className="field"+(field==="description"?" wide":"");lab.append(document.createTextNode(text),input(field==="description"?"textarea":"input",field,value));card.append(lab)}
-  function renderLinks(){
-    const holder=$("editor-links");holder.replaceChildren();
-    model.links.forEach((link,index)=>{
-      const card=document.createElement("div");card.className="editor-card";card.dataset.id=link.id;
-      const head=document.createElement("div");head.className="editor-card-head";
-      const title=document.createElement("strong");title.textContent="Link "+String(index+1).padStart(2,"0");
-      const controls=document.createElement("div");controls.className="bar";
-      for(const [label,dir] of [["↑",-1],["↓",1]]){const b=document.createElement("button");b.type="button";b.className="btn";b.textContent=label;b.disabled=(dir===-1&&index===0)||(dir===1&&index===model.links.length-1);b.setAttribute("aria-label",dir===-1?"Move link up":"Move link down");b.onclick=()=>move(index,dir);controls.append(b);}
-      const del=document.createElement("button");del.type="button";del.className="btn danger";del.textContent="Remove";del.onclick=()=>{if(!confirm("Remove this link from the draft?"))return;try{model=readForm()}catch(e){show(e.message,true);return;}model.links.splice(index,1);render();};controls.append(del);
-      head.append(title,controls);card.append(head);
-      const fieldsNode=document.createElement("div");fieldsNode.className="form-grid";appendField(fieldsNode,"Title","title",link.title);appendField(fieldsNode,"URL","url",link.url);appendField(fieldsNode,"Description","description",link.description);
-      const label=document.createElement("label");label.className="checkline";label.append(input("input","enabled",link.enabled),document.createTextNode("Visible to visitors"));fieldsNode.append(label);card.append(fieldsNode);holder.append(card);
+    card.addEventListener("drop", (e) => {
+      e.preventDefault();
+      const from = model.links.findIndex(
+        (l) => l.id === e.dataTransfer.getData("text/plain"),
+      );
+      if (from >= 0) move(from, index);
     });
+    const controls = document.createElement("div");
+    controls.className = "bar";
+    controls.append(
+      button("Move up", () => move(index, index - 1), index === 0),
+      button(
+        "Move down",
+        () => move(index, index + 1),
+        index === model.links.length - 1,
+      ),
+    );
+    const remove = button("Remove", () => {
+      if (
+        !confirm(`Remove “${link.title || "Untitled link"}” from this draft?`)
+      )
+        return;
+      capture();
+      model.links.splice(index, 1);
+      renderLinks();
+      update();
+      $("add-link").focus();
+    });
+    remove.classList.add("danger");
+    controls.append(remove);
+    head.append(handle, controls);
+    card.append(head);
+    const grid = document.createElement("div");
+    grid.className = "form-grid";
+    for (const f of ["title", "url", "description", "enabled"]) {
+      const label = document.createElement("label");
+      label.className =
+        f === "enabled"
+          ? "checkline"
+          : `field${f === "description" ? " wide" : ""}`;
+      const input = document.createElement(
+        f === "description" ? "textarea" : "input",
+      );
+      input.dataset.field = f;
+      if (f === "enabled") {
+        input.type = "checkbox";
+        input.checked = link.enabled;
+        label.append(input, document.createTextNode("Visible to visitors"));
+      } else {
+        if (f !== "description") input.type = f === "url" ? "url" : "text";
+        input.value = link[f] || "";
+        input.maxLength = limits[f];
+        label.append(
+          document.createTextNode(
+            f === "url" ? "Destination URL" : f[0].toUpperCase() + f.slice(1),
+          ),
+          input,
+        );
+      }
+      grid.append(label);
+    }
+    card.append(grid);
+    $("editor-links").append(card);
+  });
+  $("add-link").disabled = model.links.length >= 100;
+}
+function render() {
+  fields.forEach((k) => ($(`profile-${k}`).value = model.profile[k]));
+  $("repository").value = model.repository;
+  $("accent").value = model.appearance?.accent || "lime";
+  $("cards").value = model.appearance?.cards || "rounded";
+  renderLinks();
+  update();
+}
+async function api(path, init = {}) {
+  const response = await fetch(`/api/${path}`, {
+    ...init,
+    cache: "no-store",
+    headers: { "Content-Type": "application/json", ...init.headers },
+    signal: AbortSignal.timeout(20000),
+  });
+  let data;
+  try {
+    data = await response.json();
+  } catch {
+    throw Error(
+      "Owner service unavailable. Your edits are preserved; export JSON for recovery.",
+    );
   }
-  function render(){fields.forEach(([key,id])=>$(id).value=model.profile[key]||"");$("repository").value=model.repository||"";renderLinks();}
-  function fileDownload(text,filename){const url=URL.createObjectURL(new Blob([text],{type:"application/json"}));const a=document.createElement("a");a.href=url;a.download=filename;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
-  function encodeBase64(s){const bytes=new TextEncoder().encode(s);let binary="";for(let i=0;i<bytes.length;i+=8192){binary+=String.fromCharCode(...bytes.subarray(i,i+8192))}return btoa(binary)}
-  function decodeBase64(s){const bytes=Uint8Array.from(atob(s.replace(/\s/g,"")),c=>c.charCodeAt(0));return new TextDecoder().decode(bytes)}
-  async function gh(url,token,init={}){
-    const response=await fetch(url,{...init,headers:{"Accept":"application/vnd.github+json","Authorization":"Bearer "+token,"X-GitHub-Api-Version":"2022-11-28",...(init.headers||{})},credentials:"omit"});
-    if(!response.ok){let text="GitHub HTTP "+response.status;try{const d=await response.json();text+=": "+(d.message||"Request rejected")}catch{}throw Error(text)}
-    return response.json();
+  if (!response.ok)
+    throw Error(data.error || `Owner service HTTP ${response.status}.`);
+  return data;
+}
+async function checkDeployment() {
+  if (!commit) return;
+  try {
+    const d = await api(`status?commit=${encodeURIComponent(commit)}`);
+    status(d.message);
+    if (!["success", "failure"].includes(d.state))
+      setTimeout(() => {
+        if (commit === d.commit) checkDeployment();
+      }, 10000);
+  } catch {
+    status(
+      "Deployment status unavailable. Commit exists; deployment has not been verified. Use Check deployment to retry.",
+    );
   }
-  async function publish(){
-    if(working)return;let data;try{data=readForm()}catch(e){show(e.message,true);return}
-    const token=$("github-token").value.trim();if(!token){show("Enter a fine-grained GitHub token with Contents: Read and write for "+data.repository+".",true);return}
-    working=true;$("publish").disabled=true;show("Checking GitHub for newer changes...");
-    try{
-      const [owner,repo]=data.repository.split("/");const path="public/data.json";
-      const endpoint="https://api.github.com/repos/"+encodeURIComponent(owner)+"/"+encodeURIComponent(repo)+"/contents/"+path;
-      const current=await gh(endpoint,token);if(current.encoding!=="base64"||!current.sha)throw Error("GitHub did not return a file SHA.");
-      const remote=JSON.parse(decodeBase64(current.content));
-      if(JSON.stringify(remote)!==JSON.stringify(baseline))throw Error("GitHub data.json changed since this editor loaded. Download your changes, then reload and reapply them before publishing.");
-      const body=JSON.stringify({message:"Update MyLinks profile and links",content:encodeBase64(JSON.stringify(data,null,2)+"\n"),sha:current.sha,branch:"main"});
-      const result=await gh(endpoint,token,{method:"PUT",headers:{"Content-Type":"application/json"},body});
-      baseline=clone(data);model=clone(data);
-      localStorage.removeItem("mylinks-draft-"+data.repository);
-      show("GitHub commit created: "+result.commit.sha.slice(0,12)+". Cloudflare deployment is pending; check the repository Actions tab. The live page is not updated until deployment succeeds.");
-    }catch(e){show(e.message||"Publish failed",true)}finally{working=false;$("publish").disabled=false;$("github-token").value=""}
+}
+async function publish() {
+  if (working || !service) return;
+  let data;
+  try {
+    data = validate(capture());
+  } catch (e) {
+    show(e.message, true);
+    return;
   }
-  async function init(){
-    try{const r=await fetch("./data.json",{cache:"no-store"});if(!r.ok)throw Error("HTTP "+r.status);model=validate(await r.json());baseline=clone(model);render()}
-    catch(e){show("Could not read data.json: "+e.message+". Serve the public/ folder through HTTP.",true);document.querySelectorAll("button").forEach(b=>b.disabled=true);return}
-    $("add-link").onclick=()=>{try{model=readForm();model.links.push({id:newId(),title:"New link",url:"https://example.com/",description:"",enabled:false});render();document.querySelector(".editor-card:last-child input")?.focus()}catch(e){show(e.message,true)}};
-    $("save-draft").onclick=()=>{try{const d=readForm();localStorage.setItem("mylinks-draft-"+d.repository,JSON.stringify(d));show("Draft saved in this browser. It is not public.")}catch(e){show(e.message,true)}};
-    $("restore-draft").onclick=()=>{try{const text=localStorage.getItem("mylinks-draft-"+$("repository").value.trim());if(!text)throw Error("No saved draft found for this repository.");model=validate(JSON.parse(text));render();show("Draft restored. Publish to GitHub when ready.")}catch(e){show(e.message,true)}};
-    $("download-json").onclick=()=>{try{fileDownload(JSON.stringify(readForm(),null,2)+"\n","data.json");show("JSON downloaded. Commit it as public/data.json to publish manually.")}catch(e){show(e.message,true)}};
-    $("import-json").onclick=()=>$("import-file").click();
-    $("import-file").onchange=async e=>{const file=e.target.files[0];if(!file)return;try{model=validate(JSON.parse(await file.text()));render();show("JSON imported into editor. Not yet published.")}catch(err){show(err.message,true)}e.target.value=""};
-    $("publish").onclick=publish;
+  working = true;
+  $("publish").disabled = true;
+  $("editor-fields").disabled = true;
+  status("Publishing requested · checking the repository version…");
+  // Save recovery before any network operation. Storage failure does not prevent publishing.
+  try {
+    localStorage.setItem(key(), JSON.stringify({ data, baseSha, published }));
+  } catch {}
+  try {
+    const result = await api("publish", {
+      method: "POST",
+      headers: { "If-Match": baseSha },
+      body: JSON.stringify(data),
+    });
+    baseSha = result.sha;
+    commit = result.commit;
+    published = clone(data);
+    model = clone(data);
+    saved = JSON.stringify(model);
+    update();
+    try {
+      localStorage.setItem(
+        key(),
+        JSON.stringify({ data: model, baseSha, published }),
+      );
+    } catch {}
+    const link = $("commit-link");
+    link.href = `https://github.com/${published.repository}/commit/${commit}`;
+    link.hidden = false;
+    $("check-status").disabled = false;
+    status(
+      `GitHub commit created: ${commit.slice(0, 12)}. Waiting for deployment…`,
+    );
+    show("Changes committed. Public deployment is being checked.");
+    checkDeployment();
+  } catch (e) {
+    show(
+      `${e.message} Draft retained. Export JSON before resolving conflicts.`,
+      true,
+    );
+    status(
+      "Publishing failed or response was lost. Check GitHub before retrying.",
+    );
+  } finally {
+    working = false;
+    $("editor-fields").disabled = false;
+    $("publish").disabled = !service;
   }
-  init();
-})();
+}
+async function init() {
+  try {
+    const r = await fetch("./data.json", { cache: "no-store" });
+    if (!r.ok) throw Error("Published data unavailable.");
+    published = validate(await r.json());
+    model = clone(published);
+    model.appearance ||= { accent: "lime", cards: "rounded" };
+    saved = JSON.stringify(model);
+    render();
+    $("editor-fields").disabled = false;
+  } catch (e) {
+    show(e.message, true);
+    $("dirty").textContent =
+      "Editor unavailable. Reload to retry; saved drafts have not been removed.";
+    return;
+  }
+  $("editor-fields").addEventListener("input", () => {
+    capture();
+    update();
+  });
+  $("editor-fields").addEventListener("change", () => {
+    capture();
+    update();
+  });
+  $("add-link").onclick = () => {
+    capture();
+    model.links.push({
+      id: crypto.randomUUID(),
+      title: "New link",
+      url: "",
+      description: "",
+      enabled: false,
+    });
+    renderLinks();
+    update();
+    document
+      .querySelector('.editor-card:last-child [data-field="title"]')
+      .focus();
+  };
+  $("save-draft").onclick = () => {
+    try {
+      validateDraft(capture());
+      localStorage.setItem(
+        key(),
+        JSON.stringify({ data: model, baseSha, published }),
+      );
+      saved = JSON.stringify(model);
+      update();
+      show(
+        "Draft saved in this browser. It is not public. Incomplete fields are preserved.",
+      );
+    } catch {
+      show(
+        "Browser storage is unavailable or full. Keep this tab open and export after completing required fields.",
+        true,
+      );
+    }
+  };
+  $("restore-draft").onclick = () => {
+    try {
+      const text = localStorage.getItem(key());
+      if (!text) throw Error("No saved draft in this browser.");
+      const draft = JSON.parse(text);
+      const data = draft.data || draft;
+      // Own saved drafts may contain incomplete fields; validate structure without requiring publishable content.
+      validateDraft(data);
+      if (
+        JSON.stringify(model) !== saved &&
+        !confirm("Replace your unsaved edits with the saved draft?")
+      )
+        return;
+      model = data;
+      if (draft.published && draft.baseSha) {
+        baseSha = draft.baseSha;
+        published = validate(draft.published);
+      }
+      saved = JSON.stringify(model);
+      render();
+      show("Draft restored. It is not public.");
+    } catch (e) {
+      show(e.message, true);
+    }
+  };
+  $("download-json").onclick = () => {
+    try {
+      const data = validate(capture());
+      const url = URL.createObjectURL(
+        new Blob([JSON.stringify(data, null, 2) + "\n"], {
+          type: "application/json",
+        }),
+      );
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "data.json";
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      show(
+        "JSON downloaded. Commit as public/data.json on main; deployment must then succeed.",
+      );
+    } catch (e) {
+      show(e.message, true);
+    }
+  };
+  $("import-json").onclick = () => $("import-file").click();
+  $("import-file").onchange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    try {
+      if (file.size > MAX_BYTES) throw Error("File exceeds 128 KiB.");
+      const data = validate(JSON.parse(await file.text()));
+      if (data.repository !== published.repository)
+        throw Error("Imported repository does not match this site.");
+      if (
+        JSON.stringify(model) !== saved &&
+        !confirm("Replace your unsaved edits with this import?")
+      )
+        return;
+      model = data;
+      render();
+      show("JSON imported into this draft. It is not public.");
+    } catch (e) {
+      show(e.message, true);
+    } finally {
+      $("import-file").value = "";
+    }
+  };
+  $("discard").onclick = async () => {
+    if (
+      !confirm(
+        "Discard edits and load the latest published version? Your saved draft will remain available.",
+      )
+    )
+      return;
+    try {
+      const r = await fetch("./data.json", { cache: "no-store" });
+      if (!r.ok) throw Error("Published content unavailable; edits retained.");
+      const data = validate(await r.json());
+      published = data;
+      model = clone(data);
+      model.appearance ||= { accent: "lime", cards: "rounded" };
+      saved = JSON.stringify(model);
+      baseSha = null;
+      service = false;
+      $("publish").disabled = true;
+      render();
+      show("Published version restored.");
+      await connect();
+    } catch (e) {
+      show(e.message, true);
+    }
+  };
+  for (const mode of ["desktop", "mobile"])
+    $(`${mode}-preview`).onclick = () => {
+      $("preview-wrap").classList.toggle("mobile", mode === "mobile");
+      $("desktop-preview").setAttribute(
+        "aria-pressed",
+        String(mode === "desktop"),
+      );
+      $("mobile-preview").setAttribute(
+        "aria-pressed",
+        String(mode === "mobile"),
+      );
+    };
+  $("publish").onclick = publish;
+  $("check-status").onclick = checkDeployment;
+  await connect();
+}
+async function connect() {
+  try {
+    const session = await api("session");
+    if (JSON.stringify(session.data) !== JSON.stringify(published))
+      throw Error(
+        "Repository differs from the live deployment. Export your draft and wait for deployment before publishing.",
+      );
+    baseSha = session.sha;
+    service = true;
+    $("publish").disabled = false;
+    $("service-status").textContent =
+      "Owner verified. Publishing uses server credentials and checks for conflicting updates.";
+  } catch (e) {
+    service = false;
+    $("publish").disabled = true;
+    $("service-status").textContent =
+      `${e.message} Save/export remain available.`;
+  }
+}
+window.addEventListener("message", (e) => {
+  if (
+    e.origin === location.origin &&
+    e.source === $("preview").contentWindow &&
+    e.data?.type === "mylinks-ready" &&
+    model
+  )
+    update();
+});
+window.addEventListener("beforeunload", (e) => {
+  if (model && (JSON.stringify(model) !== saved || working)) {
+    e.preventDefault();
+    e.returnValue = "";
+  }
+});
+window.addEventListener("storage", (e) => {
+  if (published && e.key === key())
+    show(
+      "Another tab changed the saved draft. Export your edits before restoring it.",
+      true,
+    );
+});
+init();

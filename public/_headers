@@ -2,7 +2,17 @@
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: camera=(), microphone=(), geolocation=()
-  X-Frame-Options: DENY
-  Content-Security-Policy: default-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; script-src 'self'; style-src 'self'; connect-src 'self' https://api.github.com; img-src 'self' data:; form-action 'self'; upgrade-insecure-requests
-/editor.html
+  X-Frame-Options: SAMEORIGIN
+  Content-Security-Policy: default-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'self'; frame-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; form-action 'self'; upgrade-insecure-requests
+  Strict-Transport-Security: max-age=31536000
+/editor*
   X-Robots-Tag: noindex, nofollow
+  Cache-Control: no-store
+/data.json
+  Cache-Control: no-store
+/release.json
+  Cache-Control: no-store
+/*.js
+  Cache-Control: public, max-age=0, must-revalidate
+/*.css
+  Cache-Control: public, max-age=0, must-revalidate

@@ -1,203 +1,109 @@
 # MyLinks
 
-A lightweight, open-source link-in-bio website: a distinctive one-page hub, a visual link manager, and optional publish-to-GitHub workflow. Built with plain HTML, CSS, JavaScript, and JSON. No framework, database, paid link-in-bio platform, or build step is required.
+A small, open-source link hub with the Serlekan dark/lime design, visual editor, real page preview, local drafts, JSON portability, and optional owner-authenticated publishing. MIT licensed. No framework or database.
 
-**Live example:** https://serlekan-links.pages.dev/  
-**Source:** https://github.com/serlekan/mylinks
+[Public site](https://serlekan-links.pages.dev/) · [Editor](https://serlekan-links.pages.dev/editor.html)
 
-## Features
+## Content and editing
 
-- Responsive dark design with an accent color; accessible labels, keyboard focus, and reduced-motion support.
-- Add, edit, remove, reorder, show, or hide links without editing HTML.
-- Edit your name, introduction, status, tagline, and GitHub repository.
-- Save a local browser draft, restore it, download `data.json`, or import an existing JSON file.
-- Publish from `/editor.html` directly to an authorized GitHub repository using a **fine-grained personal access token**.
-- Safe URL validation: public links must be `http://` or `https://`, never JavaScript URLs. User-controlled labels/descriptions are inserted as text, not executable HTML.
-- Deploy to an *existing* Cloudflare Pages Direct Upload project using GitHub Actions and Wrangler.
-- Reusable for personal profiles, freelancers, makers, agencies, and community projects.
+`public/data.json` is the authoritative published source. Editing, importing, previewing, and saving drafts do not change it. A deployment updates the public website.
 
-## How it works
+The editor has Profile, Links, Appearance, Preview, and Save & publish sections. Add/edit links, toggle visibility, drag by the handle or use Move up/down, remove with confirmation, change profile/footer, and preview at desktop/mobile widths. The iframe runs the same HTML, CSS, modules, and renderer as the public page. Invalid draft destinations have no active link.
 
-```text
-public/data.json  →  public/app.js  →  public/index.html  →  visitors
-                                ↘  public/editor.html + editor.js
-                                    ↓
-                         draft / download / GitHub API commit
-                                    ↓
-                     GitHub Actions → Cloudflare Pages (optional)
-```
+Save draft preserves incomplete fields in this browser's local storage; Restore draft retrieves them after reload. Drafts are scoped to the repository and are not shared between browsers or devices. Unsaved changes trigger a navigation warning. Browser storage can fail (private mode/quota); the editor reports this. Download data.json requires valid content. Import validates the entire configuration before replacing anything and confirms replacing unsaved work. Restore published version fetches fresh deployed data after confirmation and retains your saved draft.
 
-The website reads `public/data.json` every time the page loads. The editor modifies an **in-memory copy** until you save a draft, download JSON, or commit it. **Saving a draft does not publish anything.** The published site changes after the new JSON file is deployed.
+For manual publishing, download data.json, compare it with the latest `public/data.json` on main, reconcile concurrent changes, replace that file and commit. Wait for a verified successful deployment. A commit alone does not update a Direct Upload site. Never put credentials in JSON.
 
-## Quick start (clone and use)
+## Local development
 
-1. Fork this repository or clone it:
+Node 22+ is recommended. Node 20 is the minimum for the application tests.
 
-   ```bash
-   git clone https://github.com/serlekan/mylinks.git
-   cd mylinks
-   ```
-
-2. Open `public/data.json`. Change `repository` to **your** `owner/repo`, set your `profile`, and replace the sample `links`. Commit the personalized version to your repository.
-3. Run a local server from the `public/` folder:
-
-   ```bash
-   cd public
-   python -m http.server 8000
-   ```
-
-   Then open `http://localhost:8000/` for the public page or `http://localhost:8000/editor.html` for the editor. Windows users can use `py -m http.server 8000` instead.
-
-4. To host it, upload **the contents of `public/`** to a static host. Cloudflare Pages, GitHub Pages, Netlify, and any HTTP static-file server work. No install or build is required.
-5. To automate publication, follow the Cloudflare section below.
-
-**Do not open the HTML as `file:///...` for editing:** browsers commonly block JSON fetches from local files. Use a local HTTP server as above.
-
-## Editing your links
-
-Open `/editor.html` on a trusted copy of your website.
-
-- **Add link:** creates a hidden new card; enter its title, URL, and optional description, then check “Visible to visitors.”
-- **Edit:** change fields directly. Use ↑ and ↓ to control ordering.
-- **Hide:** uncheck “Visible to visitors” without deleting the item.
-- **Remove:** deletes it from the current draft; nothing changes publicly until you publish.
-- **Save draft:** writes only non-secret page data to your browser's localStorage. Each repository has its own draft key.
-- **Restore draft:** reloads the local draft for the repository shown in the editor.
-- **Download data.json:** saves the current page settings and links to your computer. Replace `public/data.json` in the repo manually if you do not want browser-based publishing.
-- **Import JSON:** loads a previously exported `data.json` into the editor.
-
-Changes are checked before saving/exporting/publishing: names and titles cannot be empty, IDs must be unique, and link destinations must be HTTP(S) URLs without embedded credentials.
-
-### Publish from the editor to GitHub
-
-1. Configure `repository` inside `public/data.json` with the exact `owner/repository` name. Commit this initial setup through GitHub first.
-2. In GitHub → **Settings → Developer settings → Personal access tokens → Fine-grained tokens**, create a token restricted to that repository, with **Contents: Read and write**. Use the shortest reasonable expiry. Never use a full-account token when a repository-scoped one will do.
-3. Open `/editor.html` from **your own trusted domain**. Edit the page, then paste that token into the password field and click **Publish to GitHub**.
-4. The editor fetches the current `public/data.json` and its Git blob SHA, rejects stale concurrent edits, and commits your updated JSON to `main`.
-5. The editor clears the token input after the request. **Tokens are not saved to localStorage, exported with JSON, or committed.** They are sent only to `https://api.github.com` using the GitHub REST Contents API.
-6. The resulting commit is **not a successful deployment**. Check the **Actions** tab for deployment status, or deploy the updated `public/` folder manually.
-
-If another commit changed `data.json` since you loaded the editor, publishing stops instead of overwriting the newer copy. Download your draft, reload, and reapply/re-import changes after resolving conflicts.
-
-**Security limits:** Anyone can view the editor HTML, but GitHub denies publishing without write permission. The editor is not an authentication service, and it does not create a secret admin password. Do not paste a token into another person's fork, an untrusted domain, or a machine you do not control. If you do not trust browser token entry, use **Download data.json** and the GitHub web interface instead. GitHub tokens should be revoked when no longer needed. Never embed tokens in `data.json`, HTML, or public Git history.
-
-## JSON configuration
-
-Edit `public/data.json`:
-
-```json
-{
-  "version": 1,
-  "profile": {
-    "name": "Your Name",
-    "eyebrow": "Builder · Creator",
-    "status": "Available",
-    "intro": "A short introduction.",
-    "footer": "What you're working on."
-  },
-  "repository": "your-username/mylinks",
-  "links": [
-    {
-      "id": "portfolio",
-      "title": "Portfolio",
-      "description": "Selected projects",
-      "url": "https://example.com",
-      "enabled": true
-    }
-  ]
-}
-```
-
-Every link needs a unique stable `id`, a `title`, an absolute HTTP(S) `url`, and a boolean `enabled`. `description` is optional. Hidden items remain in JSON but are excluded from the public page. The `repository` value tells the editor where to publish; it does **not** grant access.
-
-To customize colors, edit the CSS variables at the top of `public/styles.css`. To change layout/behavior, edit `public/index.html`, `public/app.js`, and corresponding editor files.
-
-## Cloudflare Pages deployment
-
-### A. Manual Direct Upload (no automation)
-
-- In Cloudflare → **Workers & Pages**, create a **Direct Upload** Pages project, or open one you already own.
-- Upload the **contents of `public/`** to production. The folder contains the complete static site.
-- When you edit JSON in GitHub later, Cloudflare **will not** update on its own unless you configure GitHub Actions or perform another manual upload.
-
-### B. Automatic deployment to an existing Direct Upload project
-
-This repository includes `.github/workflows/deploy.yml` for Cloudflare's supported Wrangler continuous-integration flow. **You do not need to replace an existing `*.pages.dev` project.**
-
-In your GitHub repository → **Settings → Secrets and variables → Actions**:
-
-1. Add repository **secret** `CLOUDFLARE_API_TOKEN`: a Cloudflare token limited to the necessary account with **Cloudflare Pages: Edit** permissions.
-2. Add repository **secret** `CLOUDFLARE_ACCOUNT_ID`: the account ID from your Cloudflare dashboard. It is treated as a secret here for consistency, though it is not an authentication token.
-3. Add repository **variable** `CF_PAGES_PROJECT`: the **existing Pages project name** (for this project, `serlekan-links`; for clones, use their own project name).
-4. Ensure the Pages project's **production branch is `main`**. If it is not, adjust your branch settings or workflow.
-5. Push any change to `public/` on `main`, or use **Actions → Deploy Cloudflare Pages → Run workflow** to trigger the initial deployment.
-
-The workflow runs `npm test` before deploy, then executes `wrangler pages deploy public --project-name=<project> --branch=main` through `cloudflare/wrangler-action@v4`.
-
-**Important:** Existing Direct Upload projects cannot be converted into native Git-integrated Pages projects in place. GitHub Actions + Wrangler is a separate, fully supported integration that preserves your existing Pages project and hostname.
-
-If `CF_PAGES_PROJECT` is unset, the validation workflow runs but deployment is skipped. If it is set and a Cloudflare secret is missing/invalid, deployment fails; examine the Actions logs. Do not put Cloudflare tokens in a public file.
-
-### C. Other hosts
-
-- **GitHub Pages:** publish the `public/` directory using your build/deployment method. The editor's GitHub save updates the repo but does not itself configure GitHub Pages.
-- **Netlify / other static hosts:** set the publish directory to `public`, and connect its build integration if you want automatic publication.
-- **Cloudflare with Git integration (new projects):** choose `public` as output folder and no build command. This does not apply to an existing Direct Upload project.
-
-## Development and validation
-
-This project uses Node's built-in test runner and has no runtime package dependencies.
-
-```bash
+```sh
+npm ci
 npm test
-node --check public/app.js
-node --check public/editor.js
+npx playwright install chromium firefox webkit
+npm run test:e2e
+npm run build
+npm run dev
 ```
 
-`npm test` validates the JSON schema, link data, URLs, duplicate identifiers, and required static files. Inspect the public page and editor at desktop/mobile sizes as a final acceptance check before publication.
+Open http://127.0.0.1:4173 and http://127.0.0.1:4173/editor.html. `npm run dev` serves the last `dist/` build; rebuild after source edits. It intentionally returns an unavailable response for the optional owner API. To run actual Pages Functions locally, use `npx wrangler pages dev dist`; unconfigured privileged operations deny access. Keep local secrets only in gitignored `.dev.vars`.
 
-## Common problems
+Build creates `dist/`: static HTML content and metadata from JSON, copied assets, and release.json. The public page remains readable with JavaScript disabled or JSON fetch failure. Deploy **dist**, not public. Wrangler bundles the sibling `functions/` directory during Pages deployment. Plain static hosts support the public page and draft/export editor without the optional publishing service.
 
-| Symptom | Cause / fix |
-| --- | --- |
-| Page says links cannot load | Ensure `data.json` exists next to `index.html` and open over HTTP rather than `file://`. |
-| GitHub returns 401 | Token is invalid/expired. Create a repository-scoped fine-grained token. |
-| GitHub returns 403 or 404 | Token may not have access to the repo, or `repository` contains the wrong owner/name. |
-| Editor says GitHub data changed | Download your draft, reload, resolve the newer version, then republish. |
-| GitHub commit succeeded but site did not change | Check **Actions**; Cloudflare secrets/project variable and target production branch must be configured. |
-| A `C:\\Users\\...\\file.html` link does not work | Local Windows paths are not public URLs. Deploy the file somewhere reachable via HTTPS and use that URL. |
-| Link is not visible | Verify `enabled: true`, valid URL, and completed deployment. |
+## Secure owner publishing (optional)
 
-## Project layout
+No browser token input exists. Visitors cannot modify the repository. Until configured, the editor explicitly offers draft/export only and every publishing request is denied.
 
-```text
-mylinks/
-  .github/workflows/deploy.yml  # Validate and deploy to Cloudflare
-  public/
-    index.html                  # Public landing page
-    app.js                      # Renders validated links
-    editor.html                 # Management UI
-    editor.js                   # Drafts, editing, GitHub publishing
-    styles.css                  # Shared responsive theme
-    data.json                   # Profile and link data
-    _headers                    # Cloudflare security headers
-  scripts/validate.mjs          # Node-based checks
-  package.json
-  README.md
-  LICENSE
+1. Create a Cloudflare Access self-hosted application covering the editor (`/editor`, `/editor/`, `/editor.html`) and `/api/*` on the production hostname. Restrict the policy to the owner's exact identities. Cover custom domains too. Deployment hostnames also require protection if used for editing; the service independently verifies JWTs to prevent bypass through Pages aliases.
+2. In the existing Pages project's **production** Variables and Secrets, set:
+
+   | Name | Value / scope |
+   | --- | --- |
+   | `ACCESS_TEAM` | Cloudflare Zero Trust team slug, without hostname |
+   | `ACCESS_AUD` | Access application's audience tag |
+   | `OWNER_EMAILS` | Explicit comma-separated owner email allowlist |
+   | `PUBLIC_ORIGIN` | `https://serlekan-links.pages.dev` |
+   | `GITHUB_REPOSITORY` | `serlekan/mylinks` |
+   | `GITHUB_TOKEN` (secret) | Fine-grained token restricted to this repository; Contents read/write, Actions read, Metadata read |
+
+3. Use a short token expiry and rotate it through Pages secrets. Never reuse a broad CLI/account credential in the application. Do not add workflow-write, repository-admin, or organization permissions. GitHub App credentials are a possible future replacement for expiring PATs.
+4. Configure an edge rate-limiting rule for `/api/publish` and appropriate Access session duration. The service limits payloads to 128 KiB and 100 links, uses network timeouts, verifies identity on every request, rejects cross-origin/non-JSON writes, and requires the exact Git blob SHA. GitHub enforces atomic SHA updates, so concurrent submissions and replayed mutations cannot silently overwrite newer versions. Repeated identical content is rejected. GitHub also enforces its API limits; authenticated-owner misuse requires edge rate limiting/revocation.
+5. Redeploy, sign in via Access, open the editor, and verify the positive owner journey. Missing or partial configuration fails closed. No fake local login is provided. When Access settings are absent, the static export editor is intentionally public, with no publishing authority.
+
+The API fixes the repository on the server, the branch to main, and the writable path to public/data.json. Imported configuration cannot redirect it. It verifies RS256 signature against the configured team's JWKS, issuer, audience, expiry, required identity claims, and owner email. No client-supplied identity header alone is trusted. Errors exclude upstream response bodies and credentials.
+
+The editor checks that GitHub and deployed JSON agree before enabling publishing, sends the loaded file SHA, and saves a recovery draft before requesting a commit. Conflicts retain edits. It distinguishes commit creation, workflow progress/failure, and a production release marker matching the exact commit. A green workflow without the matching live marker is **not** presented as deployment success. Status can be retried after network errors.
+
+## Existing Cloudflare Pages deployment
+
+Keep `serlekan-links` and production branch main. Do not delete/recreate the project or try to convert Direct Upload to native Git integration.
+
+Repository Actions configuration:
+
+| Type | Name | Value |
+| --- | --- | --- |
+| Secret | `CLOUDFLARE_API_TOKEN` | Account-scoped token, Cloudflare Pages: Edit |
+| Secret | `CLOUDFLARE_ACCOUNT_ID` | Existing account ID |
+| Variable | `CF_PAGES_PROJECT` | `serlekan-links` |
+
+The workflow uses read-only GitHub permissions, locked npm dependencies, schema/security tests, an audit, a static build, and Chromium/Firefox/WebKit journeys. Production deployments are serialized with cancellation disabled. Missing configuration fails explicitly, rather than silently skipping deployment. Wrangler v4 deploys dist to the existing project and main branch. Verification checks the immutable deployment and unchanged production URL, exact release marker, data, assets, and denied anonymous publish requests. Browser traces are retained as failure artifacts.
+
+A local release using an existing authorized Wrangler login is also possible after the same checks:
+
+```sh
+npm ci
+npm test
+npm run test:e2e
+# Set GITHUB_SHA to the committed release SHA before building.
+npm run build
+npx wrangler pages deploy dist --project-name=serlekan-links --branch=main --commit-hash=<release-sha>
+node scripts/verify-live.mjs
 ```
 
-## Contributions
+This does not configure unattended Actions deployment. Never store a short-lived local OAuth session as a substitute for the required CI token.
 
-Issues and pull requests are welcome. Keep the project dependency-free where possible, maintain keyboard accessibility, avoid sending tokens to third-party endpoints, and make it clear whether a button saves a draft or actually publishes a change.
+For rollback, use the existing project's deployment rollback control or revert the bad Git commit and redeploy. Record the rollback SHA. Preserve public/data.json changes by exporting/reconciling before rollback. A rollback does not repair credentials or Access policy.
 
-## License
+## Schema, security and customization
 
-MIT — see [LICENSE](LICENSE).
+Version 1 preserves the original profile fields (`name`, `eyebrow`, `status`, `intro`, `footer`), repository and links. Optional appearance is `{ "accent": "lime", "cards": "rounded" }`; accents: lime/mint/sky; cards: rounded/square. IDs are unique alphanumeric strings with hyphens/underscores. Public URLs require absolute HTTP(S), no embedded credentials/whitespace/backslashes. All rendering uses text nodes. Unknown fields, malformed types, excessive lengths, unsupported versions and duplicate IDs are rejected consistently in CI/browser/server. Draft structural validation permits incomplete field text without weakening publishing validation.
 
-## Official references
+Public and editor CSS is local; no external font/CDN calls. CSP permits scripts/styles/connect only to self and the same-origin preview frame. It disallows objects and limits embedding to the same origin. Security headers include nosniff, referrer/permissions policies and HSTS. API responses are uncached and have restrictive headers. The public page never depends on Access or owner API availability.
 
-- [Cloudflare Pages: continuous integration for Direct Upload](https://developers.cloudflare.com/pages/how-to/use-direct-upload-with-continuous-integration/)
-- [Cloudflare Pages: Direct Upload](https://developers.cloudflare.com/pages/get-started/direct-upload/)
-- [GitHub REST API: create/update repository file](https://docs.github.com/en/rest/repos/contents#create-or-update-file-contents)
-- [GitHub fine-grained personal access tokens](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens)
+Forks: change repository and profile/links in public/data.json, replace social.png, update the canonical hostname/metadata in scripts/build.mjs, and configure your own fixed server repository/origin and deployment project. Review the workflow's deliberate project-name guard before deploying a fork. Do not reuse Serlekan credentials or identities.
+
+## Project map
+
+- `public/`: page/editor UI, shared schema/renderer, authoritative JSON, CSS, headers and routing.
+- `functions/`: Cloudflare Access authorization and session/publish/status APIs.
+- `scripts/`: static build, validation tests, local server and live verification.
+- `tests/`: signed-JWT/API security tests and browser journeys.
+- `docs/REPAIR-PLAN.md`: source reconciliation, findings and repair priorities.
+- `docs/RELEASE-REPORT.md`: evidence, limitations and remaining configuration.
+
+Report vulnerabilities privately to the repository owner rather than posting secrets in an issue. Keep the shared schema and negative tests aligned when changing data contracts.
+
+## References
+
+[Cloudflare Direct Upload CI](https://developers.cloudflare.com/pages/how-to/use-direct-upload-with-continuous-integration/), [Access JWT verification](https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/authorization-cookie/validating-json/), [GitHub Contents API](https://docs.github.com/en/rest/repos/contents#create-or-update-file-contents).

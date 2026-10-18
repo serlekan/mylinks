@@ -1,24 +1,68 @@
-import test from 'node:test';
-import assert from 'node:assert/strict';
-import { readFileSync, existsSync } from 'node:fs';
-import { join } from 'node:path';
-const root=new URL('../public/',import.meta.url);
-const file=name=>readFileSync(new URL(name,root),'utf8');
-const validateLink=l=>{
- assert.equal(typeof l.id,'string');assert.ok(l.id.trim(),'Unique ID required');
- assert.ok(typeof l.title==='string'&&l.title.trim(),'Title required');
- assert.ok(typeof l.description==='string'||l.description===undefined,'Description must be a string');
- assert.equal(typeof l.enabled,'boolean');
- const u=new URL(l.url);assert.ok(['http:','https:'].includes(u.protocol),'Only HTTP(S) URLs allowed');assert.equal(u.username,'');assert.equal(u.password,'');
+import test from "node:test";
+import assert from "node:assert/strict";
+import { readFileSync, existsSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { spawnSync } from "node:child_process";
+import { validate, secureUrl } from "../public/schema.js";
+const root = new URL("../public/", import.meta.url);
+const source = () =>
+  JSON.parse(readFileSync(new URL("data.json", root), "utf8"));
+test("published content follows shared schema", () =>
+  assert.deepEqual(validate(source()), source()));
+for (const url of [
+  "javascript:alert(1)",
+  "data:text/html,hi",
+  "file:///C:/x",
+  "https://name:secret@example.com",
+  " https://example.com",
+  "https:\\example.com",
+  "https://example.com/ space",
+  "//example.com",
+  "http://",
+])
+  test(`reject unsafe URL ${url}`, () => assert.equal(secureUrl(url), null));
+for (const url of [
+  "https://example.com/path?q=x#anchor",
+  "http://example.com",
+  "https://例え.jp/",
+])
+  test(`allow HTTP(S) ${url}`, () => assert.ok(secureUrl(url)));
+const invalids = {
+  version: (d) => (d.version = 2),
+  duplicate: (d) => d.links.push(d.links[0]),
+  empty: (d) => (d.links[0].title = " "),
+  type: (d) => (d.profile.intro = {}),
+  length: (d) => (d.links[0].description = "x".repeat(501)),
+  enabled: (d) => (d.links[0].enabled = "true"),
+  unknown: (d) => (d.token = "secret"),
+  nested: (d) => (d.links[0].html = "<img>"),
+  appearance: (d) => (d.appearance = { accent: "url(evil)", cards: "rounded" }),
+  prototype: (d) => (d.links[0].id = "__proto__!"),
 };
-test('valid content schema',()=>{
- const d=JSON.parse(file('data.json'));assert.equal(d.version,1);
- assert.ok(d.profile&&typeof d.profile.name==='string'&&d.profile.name.trim());
- assert.match(d.repository,/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/);
- assert.ok(Array.isArray(d.links));
- const ids=new Set();for(const link of d.links){validateLink(link);assert.ok(!ids.has(link.id),'Duplicate ID '+link.id);ids.add(link.id)}
+for (const [name, mutate] of Object.entries(invalids))
+  test(`schema rejects ${name}`, () => {
+    const d = source();
+    mutate(d);
+    assert.throws(() => validate(d));
+  });
+test("scripts parse on Windows and POSIX", () => {
+  for (const script of ["app.js", "editor.js", "schema.js", "render.js"]) {
+    const p = spawnSync(
+      process.execPath,
+      ["--check", fileURLToPath(new URL(script, root))],
+      { encoding: "utf8" },
+    );
+    assert.equal(p.status, 0, p.stderr);
+  }
 });
-test('all static assets exist',()=>{for(const path of ['index.html','app.js','editor.html','editor.js','styles.css','_headers','data.json']){assert.ok(existsSync(new URL(path,root)),path+' missing')}});
-test('scripts parse',async()=>{const {spawnSync}=await import('node:child_process');for(const script of ['app.js','editor.js']){const p=spawnSync(process.execPath,['--check',new URL(script,root).pathname],{encoding:'utf8'});assert.equal(p.status,0,p.stderr)}});
-test('editor never stores a token in browser storage',()=>{const src=file('editor.js');assert.ok(!/localStorage\.setItem\([^\n]*token/i.test(src));assert.ok(src.includes('github-token'));});
-test('public app rejects unsafe URL protocols',()=>{const src=file('app.js');assert.ok(src.includes('u.protocol==="https:"'));assert.ok(src.includes('u.protocol==="http:"'));});
+test("public assets exist", () => {
+  for (const f of [
+    "index.html",
+    "editor.html",
+    "styles.css",
+    "_headers",
+    "_routes.json",
+    "robots.txt",
+  ])
+    assert.ok(existsSync(new URL(f, root)), f);
+});
